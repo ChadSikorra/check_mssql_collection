@@ -27,8 +27,8 @@ except:
     import pickle
 from optparse import OptionParser, OptionGroup
 
-BASE_QUERY = "SELECT cntr_value FROM sysperfinfo WHERE counter_name='%s' AND instance_name='%%s';"
-DIVI_QUERY = "SELECT cntr_value FROM sysperfinfo WHERE counter_name LIKE '%s%%%%' AND instance_name='%%s';"
+BASE_QUERY = "SELECT cntr_value FROM sys.dm_os_performance_counters WHERE counter_name='%s' AND instance_name='%%s';"
+DIVI_QUERY = "SELECT cntr_value FROM sys.dm_os_performance_counters WHERE counter_name LIKE '%s%%%%' AND instance_name='%%s';"
 
 MODES     = {
     
@@ -354,6 +354,6 @@ if __name__ == '__main__':
         sys.exit(e.code)
     except Exception, e:
         print type(e)
-        print "Caught unexpected error. This could be caused by your sysperfinfo not containing the proper entries for this query, and you may delete this service check."
+        print "Caught unexpected error. This could be caused by your sys.dm_os_performance_counters not containing the proper entries for this query, and you may delete this service check."
         sys.exit(3)
 
