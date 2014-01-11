@@ -136,7 +136,7 @@ class NagiosReturn(Exception):
 class MSSQLQuery(object):
     
     def __init__(self, query, options, label='', unit='', stdout='', host='', modifier=1, *args, **kwargs):
-        self.query = query % options.table
+        self.query = query % options.database
         self.label = label
         self.unit = unit
         self.stdout = stdout
@@ -178,7 +178,7 @@ class MSSQLDeltaQuery(MSSQLQuery):
     
     def make_pickle_name(self):
         tmpdir = tempfile.gettempdir()
-        tmpname = hash(self.host + self.table + self.query)
+        tmpname = hash(self.host + self.database + self.query)
         self.picklename = '%s/mssql-%s.tmp' % (tmpdir, tmpname)
     
     def calculate_result(self):
@@ -233,14 +233,14 @@ def is_within_range(nagstring, value):
     raise Exception('Improper warning/critical format.')
 
 def parse_args():
-    usage = "usage: %prog -H hostname -U user -P password -T table --mode"
+    usage = "usage: %prog -H hostname -U user -P password -D database --mode"
     parser = OptionParser(usage=usage)
     
     required = OptionGroup(parser, "Required Options")
     required.add_option('-H', '--hostname', help='Specify MSSQL Server Address', default=None)
     required.add_option('-U', '--user', help='Specify MSSQL User Name', default=None)
     required.add_option('-P', '--password', help='Specify MSSQL Password', default=None)
-    required.add_option('-T', '--table', help='Specify the table to check', default=None) 
+    required.add_option('-D', '--database', help='Specify the database to check', default=None) 
     parser.add_option_group(required)
     
     connection = OptionGroup(parser, "Optional Connection Information")
@@ -288,7 +288,7 @@ def connect_db(options):
     elif options.port:
         host += ":" + options.port
     start = time.time()
-    mssql = pymssql.connect(host = host, user = options.user, password = options.password, database=options.table)
+    mssql = pymssql.connect(host = host, user = options.user, password = options.password, database=options.database)
     total = time.time() - start
     return mssql, total, host
 
