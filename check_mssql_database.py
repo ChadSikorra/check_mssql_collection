@@ -29,6 +29,7 @@ from optparse import OptionParser, OptionGroup
 
 BASE_QUERY = "SELECT cntr_value FROM sys.dm_os_performance_counters WHERE counter_name='%s' AND instance_name='%%s';"
 DIVI_QUERY = "SELECT cntr_value FROM sys.dm_os_performance_counters WHERE counter_name LIKE '%s%%%%' AND instance_name='%%s';"
+LISTDB_QUERY = "SELECT NAME FROM sys.sysdatabases;"
 
 MODES     = {
     
@@ -253,6 +254,10 @@ def parse_args():
     nagios.add_option('-c', '--critical', help='Specify critical range.', default=None)
     parser.add_option_group(nagios)
     
+    debug = OptionGroup(parser, "Debug Options")
+    debug.add_option('-l', '--list-databases', action="store_true", help='List all databases on the server', default=False)
+    parser.add_option_group(debug)
+
     mode = OptionGroup(parser, "Mode Options")
     global MODES
     for k, v in zip(MODES.keys(), MODES.values()):
@@ -266,8 +271,8 @@ def parse_args():
         parser.error('User is a required option.')
     if not options.password:
         parser.error('Password is a required option.')
-    if not options.table:
-        parser.error('Table is a required option.')
+    if not options.database and not options.list_databases:
+        parser.error('Database is a required option.')
     
     if options.instance and options.port:
         parser.error('Cannot specify both instance and port.')
@@ -297,7 +302,11 @@ def main():
     
     mssql, total, host = connect_db(options)
     
-    if options.mode =='test':
+    if options.list_databases:
+        databases = get_all_databases(mssql) 
+        print "\n".join(databases)
+
+    elif options.mode =='test':
         run_tests(mssql, options, host)
         
     elif not options.mode or options.mode == 'time2connect':
@@ -323,11 +332,17 @@ def execute_query(mssql, options, host=''):
         mssql_query = MSSQLQuery(**sql_query)
     mssql_query.do(mssql)
 
+def get_all_databases(mssql):
+    cur = mssql.cursor()
+    cur.execute(LISTDB_QUERY)
+    return [item[0] for item in cur.fetchall()]
+
 def run_tests(mssql, options, host):
     failed = 0
     total  = 0
     del MODES['time2connect']
     del MODES['test']
+    del MODES['listdatabases']
     for mode in MODES.keys():
         total += 1
         options.mode = mode
