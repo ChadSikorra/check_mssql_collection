@@ -114,6 +114,12 @@ MODES     = {
     'test'              : { 'help'      : 'Run tests of all queries against the database.' },
 }
 
+STDOUT_PREFIX = {
+    0 : 'OK: ',
+    1 : 'WARNING: ',
+    2 : 'CRITICAL: ',
+}
+
 def return_nagios(options, stdout='', result='', unit='', label=''):
     if is_within_range(options.critical, result):
         prefix = 'CRITICAL: '
@@ -152,19 +158,31 @@ class MSSQLQuery(object):
         self.query_result = cur.fetchone()[0]
     
     def finish(self):
-        return_nagios(  self.options,
-                        self.stdout,
-                        self.result,
-                        self.unit,
-                        self.label )
+        stdout = self.stdout % str(self.result)
+        stdout = '%s%s|%s' % (STDOUT_PREFIX[self.code], stdout, self.perfdata)
+        raise NagiosReturn(stdout, self.code)
     
     def calculate_result(self):
         self.result = float(self.query_result) * self.modifier
-    
+
+    def generate_perfdata(self):
+        if is_within_range(self.options.critical, self.result):
+           self.code = 2
+        elif is_within_range(self.options.warning, self.result):
+            self.code = 1
+        else:
+            self.code = 0
+
+        self.perfdata = '%s=%s%s;%s;%s;;;' % ( self.label,
+                                               str(self.result),
+                                               self.unit,
+                                               self.options.warning or '',
+                                               self.options.critical or '')
+
     def do(self, connection):
         self.run_on_connection(connection)
         self.calculate_result()
-        self.finish()
+        self.generate_perfdata()
 
 class MSSQLDivideQuery(MSSQLQuery):
     
@@ -242,12 +260,12 @@ def parse_args():
     required.add_option('-H', '--hostname', help='Specify MSSQL Server Address', default=None)
     required.add_option('-U', '--user', help='Specify MSSQL User Name', default=None)
     required.add_option('-P', '--password', help='Specify MSSQL Password', default=None)
-    required.add_option('-D', '--database', help='Specify the database to check', default=None) 
     parser.add_option_group(required)
     
     connection = OptionGroup(parser, "Optional Connection Information")
     connection.add_option('-I', '--instance', help='Specify instance', default=None)
     connection.add_option('-p', '--port', help='Specify port.', default=None)
+    connection.add_option('-D', '--database', help='Specify the database to check', default=None) 
     parser.add_option_group(connection)
     
     nagios = OptionGroup(parser, "Nagios Plugin Information")
@@ -272,9 +290,6 @@ def parse_args():
         parser.error('User is a required option.')
     if not options.password:
         parser.error('Password is a required option.')
-    if not options.database and not options.list_databases:
-        parser.error('Database is a required option.')
-    
     if options.instance and options.port:
         parser.error('Cannot specify both instance and port.')
     
@@ -284,6 +299,9 @@ def parse_args():
             parser.error("Must choose one and only Mode Option.")
         elif getattr(options, arg.dest):
             options.mode = arg.dest
+    
+    if options.mode == 'test' and not options.database:
+        parser.error('When running in test mode you must specify a database.')
     
     return options
 
@@ -318,13 +336,66 @@ def main():
                         result=total )
                         
     else:
-        execute_query(mssql, options, host)
+        run_mode_check(mssql, options, host)
 
-def execute_query(mssql, options, host=''):
+def run_mode_check(mssql, options, host=''):
+    check_all_databases = False
+    results = {}
+
+    if not options.database:
+        databases = get_all_databases(mssql)
+        check_all_databases = True
+    else:
+        databases = [options.database]
+
+    for database in databases:
+        options.database = database
+        dbconnection, total, host = connect_db(options)
+        mssql_query = execute_query(dbconnection, options, host, check_all_databases)
+        results[database] = { 'code' : mssql_query.code, 'perfdata' : mssql_query.perfdata }
+        dbconnection.close()
+
+    code, stdout = get_multidb_check_output(results, options)
+
+    raise NagiosReturn(stdout, code)
+
+def get_multidb_check_output(results, options):
+    warnings = []
+    criticals = []
+    perfdata_output = ''
+
+    for database in results.keys():
+        perfdata_output = perfdata_output + results[database]['perfdata']
+        if results[database]['code'] == 1:
+            warnings.append(database)
+        elif results[database]['code'] == 2:
+            criticals.append(database)
+
+    stdout = str(len(results)) + " database(s) checked for " + MODES[options.mode]['help'].lower() + "."
+    if len(criticals) > 0:
+        stdout = stdout + " " + str(len(criticals)) + " in a critical state (" + ", ".join(criticals) + ")." 
+    if len(warnings) > 0:
+        stdout = stdout + " " + str(len(warnings)) + " in a warning state (" + ", ".join(warnings) + ")."
+    stdout = stdout + "|" + perfdata_output
+
+    if len(criticals) >= len(warnings) and len(criticals) > 0:
+        code = 2
+    elif len(warnings) > len(criticals):
+        code = 1
+    else:
+        code = 0
+    stdout = STDOUT_PREFIX[code] + stdout
+
+    return stdout, code
+
+def execute_query(mssql, options, host='', check_all_databases=False):
     sql_query = MODES[options.mode]
     sql_query['options'] = options
     sql_query['host'] = host
     query_type = sql_query.get('type')
+    if check_all_databases:
+        sql_query['label'] = options.database
+
     if query_type == 'delta':
         mssql_query = MSSQLDeltaQuery(**sql_query)
     elif query_type == 'divide':
@@ -332,6 +403,11 @@ def execute_query(mssql, options, host=''):
     else:
         mssql_query = MSSQLQuery(**sql_query)
     mssql_query.do(mssql)
+
+    if not check_all_databases:
+        mssql_query.finish()
+
+    return mssql_query
 
 def get_all_databases(mssql):
     cur = mssql.cursor()
