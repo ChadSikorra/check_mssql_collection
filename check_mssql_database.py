@@ -263,6 +263,9 @@ def parse_args():
     connection.add_option('-I', '--instance', help='Specify instance', default=None)
     connection.add_option('-p', '--port', help='Specify port.', default=None)
     connection.add_option('-D', '--database', help='Specify the database to check', default=None) 
+    connection.add_option('--exclude-databases', help='Any database names matching this regex will be ignored', default=None) 
+    connection.add_option('--include-databases', help='Only database names matching this regex will be checked', default=None) 
+    connection.add_option('--case-sensitive', action="store_true", help='Make the include/exclude regex case-sensitive', default=False) 
     parser.add_option_group(connection)
     
     nagios = OptionGroup(parser, "Nagios Plugin Information")
@@ -289,6 +292,8 @@ def parse_args():
         parser.error('Password is a required option.')
     if options.instance and options.port:
         parser.error('Cannot specify both instance and port.')
+    if options.include_databases and options.exclude_databases:
+        parser.error('Cannot both include and exclude databases. Pick only one.')
     
     options.mode = None
     for arg in mode.option_list:
@@ -345,6 +350,11 @@ def run_mode_check(mssql, options, host=''):
     else:
         databases = [options.database]
 
+    if check_all_databases and options.exclude_databases:
+        databases = filter_database_list(databases, options.exclude_databases, options.case_sensitive, True)
+    elif check_all_databases and options.include_databases:
+        databases = filter_database_list(databases, options.include_databases, options.case_sensitive, False)
+
     for database in databases:
         options.database = database
         dbconnection, total, host = connect_db(options)
@@ -355,6 +365,19 @@ def run_mode_check(mssql, options, host=''):
     code, stdout = get_multidb_check_output(results, options)
 
     raise NagiosReturn(stdout, code)
+
+def filter_database_list(databases, regex_string, case_sensitive, invert):
+    import re
+
+    if not case_sensitive:
+        regex = re.compile(regex_string, re.IGNORECASE)
+    else :
+        regex = re.compile(regex_string)
+
+    if invert:
+        return [x for x in databases if not regex.match(x)]
+    else:
+        return [x for x in databases if regex.match(x)]
 
 def get_multidb_check_output(results, options):
     warnings = []
