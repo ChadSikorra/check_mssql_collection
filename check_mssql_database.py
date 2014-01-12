@@ -343,7 +343,6 @@ def run_tests(mssql, options, host):
     total  = 0
     del MODES['time2connect']
     del MODES['test']
-    del MODES['listdatabases']
     for mode in MODES.keys():
         total += 1
         options.mode = mode
