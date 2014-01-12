@@ -122,17 +122,14 @@ STDOUT_PREFIX = {
 
 def return_nagios(options, stdout='', result='', unit='', label=''):
     if is_within_range(options.critical, result):
-        prefix = 'CRITICAL: '
         code = 2
     elif is_within_range(options.warning, result):
-        prefix = 'WARNING: '
         code = 1
     else:
-        prefix = 'OK: '
         code = 0
     strresult = str(result)
     stdout = stdout % (strresult)
-    stdout = '%s%s|%s=%s%s;%s;%s;;;' % (prefix, stdout, label, strresult, unit, options.warning or '', options.critical or '')
+    stdout = '%s%s|%s=%s%s;%s;%s;;;' % (STDOUT_PREFIX[code], stdout, label, strresult, unit, options.warning or '', options.critical or '')
     raise NagiosReturn(stdout, code)
 
 class NagiosReturn(Exception):
