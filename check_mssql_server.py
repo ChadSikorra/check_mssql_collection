@@ -289,7 +289,7 @@ class MSSQLDivideQuery(MSSQLQuery):
         super(MSSQLDivideQuery, self).__init__(*args, **kwargs)
     
     def calculate_result(self):
-        self.result = (float(self.query_result[0]) / self.query_result[1]) * self.modifier
+        self.result = round((float(self.query_result[0]) / self.query_result[1]) * self.modifier, 2)
     
     def run_on_connection(self, connection):
         cur = connection.cursor()
@@ -325,7 +325,7 @@ class MSSQLDeltaQuery(MSSQLQuery):
             new_time = time.time()
             old_val  = last_run['query_result']
             new_val  = self.query_result
-            self.result = ((new_val - old_val) / (new_time - old_time)) * self.modifier
+            self.result = round(((new_val - old_val) / (new_time - old_time)) * self.modifier, 2)
         else:
             self.result = None
         
