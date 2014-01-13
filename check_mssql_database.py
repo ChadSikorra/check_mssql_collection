@@ -184,7 +184,7 @@ class MSSQLQuery(object):
 class MSSQLDivideQuery(MSSQLQuery):
     
     def calculate_result(self):
-        self.result = (float(self.query_result[0]) / self.query_result[1]) * self.modifier
+        self.result = round((float(self.query_result[0]) / self.query_result[1]) * self.modifier, 2)
     
     def run_on_connection(self, connection):
         cur = connection.cursor()
