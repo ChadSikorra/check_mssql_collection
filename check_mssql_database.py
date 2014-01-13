@@ -129,7 +129,7 @@ def return_nagios(options, stdout='', result='', unit='', label=''):
         code = 0
     strresult = str(result)
     stdout = stdout % (strresult)
-    stdout = '%s%s|%s=%s%s;%s;%s;;;' % (STDOUT_PREFIX[code], stdout, label, strresult, unit, options.warning or '', options.critical or '')
+    stdout = "%s%s|'%s'=%s%s;%s;%s;;" % (STDOUT_PREFIX[code], stdout, label, strresult, unit, options.warning or '', options.critical or '')
     raise NagiosReturn(stdout, code)
 
 class NagiosReturn(Exception):
@@ -170,7 +170,7 @@ class MSSQLQuery(object):
         else:
             self.code = 0
 
-        self.perfdata = '%s=%s%s;%s;%s;;;' % ( self.label,
+        self.perfdata = "'%s'=%s%s;%s;%s;;" % (  self.label,
                                                str(self.result),
                                                self.unit,
                                                self.options.warning or '',
@@ -382,10 +382,10 @@ def filter_database_list(databases, regex_string, case_sensitive, invert):
 def get_multidb_check_output(results, options):
     warnings = []
     criticals = []
-    perfdata_output = ''
+    perfdata_output = []
 
     for database in results.keys():
-        perfdata_output = perfdata_output + results[database]['perfdata']
+        perfdata_output.append(results[database]['perfdata'])
         if results[database]['code'] == 1:
             warnings.append(database)
         elif results[database]['code'] == 2:
@@ -396,7 +396,8 @@ def get_multidb_check_output(results, options):
         stdout = stdout + " " + str(len(criticals)) + " in a critical state (" + ", ".join(criticals) + ")." 
     if len(warnings) > 0:
         stdout = stdout + " " + str(len(warnings)) + " in a warning state (" + ", ".join(warnings) + ")."
-    stdout = stdout + "|" + perfdata_output
+    if len(perfdata_output) > 0:
+        stdout = stdout + "|" + " ".join(perfdata_output)
 
     if len(criticals) >= len(warnings) and len(criticals) > 0:
         code = 2
