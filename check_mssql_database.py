@@ -362,7 +362,7 @@ def run_mode_check(mssql, options, host=''):
         results[database] = { 'code' : mssql_query.code, 'perfdata' : mssql_query.perfdata }
         dbconnection.close()
 
-    code, stdout = get_multidb_check_output(results, options)
+    stdout, code = get_multidb_check_output(results, options)
 
     raise NagiosReturn(stdout, code)
 
