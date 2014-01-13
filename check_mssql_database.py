@@ -220,7 +220,7 @@ class MSSQLDeltaQuery(MSSQLQuery):
             new_time = time.time()
             old_val  = last_run['query_result']
             new_val  = self.query_result
-            self.result = ((new_val - old_val) / (new_time - old_time)) * self.modifier
+            self.result = round(((new_val - old_val) / (new_time - old_time)) * self.modifier, 2)
         else:
             self.result = None
         
