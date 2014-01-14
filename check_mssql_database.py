@@ -120,6 +120,14 @@ STDOUT_PREFIX = {
     2 : 'CRITICAL: ',
 }
 
+DATASIZE_UNIT = {
+    'B'  : 1024,
+    'KB' : 1,
+    'MB' : 1.0/1024,
+    'GB' : 1.0/(1024 * 1024),
+    'TB' : 1.0/(1024 * 1024 * 1024),
+}
+
 def return_nagios(options, stdout='', result='', unit='', label=''):
     if is_within_range(options.critical, result):
         code = 2
@@ -160,7 +168,7 @@ class MSSQLQuery(object):
         raise NagiosReturn(stdout, self.code)
     
     def calculate_result(self):
-        self.result = float(self.query_result) * self.modifier
+        self.result = round(float(self.query_result) * self.modifier, 2)
 
     def generate_perfdata(self):
         if is_within_range(self.options.critical, self.result):
@@ -272,6 +280,10 @@ def parse_args():
     nagios.add_option('-w', '--warning', help='Specify warning range.', default=None)
     nagios.add_option('-c', '--critical', help='Specify critical range.', default=None)
     parser.add_option_group(nagios)
+
+    perfdata = OptionGroup(parser, "Performance Data Options")
+    perfdata.add_option('-d', '--datasize-unit', help='Force a unit type for the datasize mode: B, KB, MB, GB, TB', default=None) 
+    parser.add_option_group(perfdata)
     
     debug = OptionGroup(parser, "Debug Options")
     debug.add_option('-l', '--list-databases', action="store_true", help='List all databases on the server', default=False)
@@ -294,6 +306,12 @@ def parse_args():
         parser.error('Cannot specify both instance and port.')
     if options.include_databases and options.exclude_databases:
         parser.error('Cannot both include and exclude databases. Pick only one.')
+    if options.datasize_unit and options.datasize_unit.upper() in DATASIZE_UNIT:
+        options.datasize_unit = options.datasize_unit.upper() 
+        MODES['datasize']['unit'] = options.datasize_unit
+        MODES['datasize']['modifier'] = DATASIZE_UNIT[options.datasize_unit]
+    elif options.datasize_unit and not options.datasize_unit in DATASIZE_UNIT:
+        parser.error('Invalid datasize unit specified.')
     
     options.mode = None
     for arg in mode.option_list:
