@@ -137,7 +137,9 @@ def return_nagios(options, stdout='', result='', unit='', label=''):
         code = 0
     strresult = str(result)
     stdout = stdout % (strresult)
-    stdout = "%s%s|'%s'=%s%s;%s;%s;;" % (STDOUT_PREFIX[code], stdout, label, strresult, unit, options.warning or '', options.critical or '')
+    stdout = "%s%s" % (STDOUT_PREFIX[code], stdout)
+    if not options.no_perfdata:
+        stdout = "%s|'%s'=%s%s;%s;%s;;" % (stdout, label, strresult, unit, options.warning or '', options.critical or '')
     raise NagiosReturn(stdout, code)
 
 class NagiosReturn(Exception):
@@ -164,7 +166,9 @@ class MSSQLQuery(object):
     
     def finish(self):
         stdout = self.stdout % str(self.result)
-        stdout = '%s%s|%s' % (STDOUT_PREFIX[self.code], stdout, self.perfdata)
+        stdout = '%s%s' % (STDOUT_PREFIX[self.code], stdout)
+        if not self.options.no_perfdata:
+            stdout = "%s|%s" % (stdout, self.perfdata)
         raise NagiosReturn(stdout, self.code)
     
     def calculate_result(self):
@@ -283,6 +287,7 @@ def parse_args():
 
     perfdata = OptionGroup(parser, "Performance Data Options")
     perfdata.add_option('-d', '--datasize-unit', help='Force a unit type for the datasize mode: B, KB, MB, GB, TB', default=None) 
+    perfdata.add_option('-n', '--no-perfdata', action="store_true", help='Do not return performance data', default=False) 
     parser.add_option_group(perfdata)
     
     debug = OptionGroup(parser, "Debug Options")
@@ -414,7 +419,7 @@ def get_multidb_check_output(results, options):
         stdout = stdout + " " + str(len(criticals)) + " in a critical state (" + ", ".join(criticals) + ")." 
     if len(warnings) > 0:
         stdout = stdout + " " + str(len(warnings)) + " in a warning state (" + ", ".join(warnings) + ")."
-    if len(perfdata_output) > 0:
+    if len(perfdata_output) > 0 and not options.no_perfdata:
         stdout = stdout + "|" + " ".join(perfdata_output)
 
     if len(criticals) >= len(warnings) and len(criticals) > 0:
