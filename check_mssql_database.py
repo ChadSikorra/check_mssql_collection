@@ -108,7 +108,15 @@ MODES     = {
                             'query'     : BASE_QUERY % 'Data File(s) Size (KB)',
                             'type'      : 'standard'
                             },
-    
+
+    'logsize'           : { 'help'      : 'Log File Size',
+                            'stdout'    : 'Log file size is %sKB',
+                            'label'     : 'logfile_size',
+                            'unit'      : 'KB',
+                            'query'     : BASE_QUERY % 'Log File(s) Size (KB)',
+                            'type'      : 'standard'
+                            },
+   
     'time2connect'      : { 'help'      : 'Time to connect to the database.' },
     
     'test'              : { 'help'      : 'Run tests of all queries against the database.' },
@@ -286,7 +294,7 @@ def parse_args():
     parser.add_option_group(nagios)
 
     perfdata = OptionGroup(parser, "Performance Data Options")
-    perfdata.add_option('-d', '--datasize-unit', help='Force a unit type for the datasize mode: B, KB, MB, GB, TB', default=None) 
+    perfdata.add_option('-d', '--datasize-unit', help='Force a unit type for modes that return data size: B, KB, MB, GB, TB', default=None) 
     perfdata.add_option('-n', '--no-perfdata', action="store_true", help='Do not return performance data', default=False) 
     parser.add_option_group(perfdata)
     
@@ -312,10 +320,11 @@ def parse_args():
     if options.include_databases and options.exclude_databases:
         parser.error('Cannot both include and exclude databases. Pick only one.')
     if options.datasize_unit and options.datasize_unit.upper() in DATASIZE_UNIT:
-        options.datasize_unit = options.datasize_unit.upper() 
-        MODES['datasize']['unit'] = options.datasize_unit
-        MODES['datasize']['modifier'] = DATASIZE_UNIT[options.datasize_unit]
-        MODES['datasize']['stdout'] = MODES['datasize']['stdout'].rstrip('KB') + options.datasize_unit
+        for v in ['datasize', 'logsize']:
+            options.datasize_unit = options.datasize_unit.upper() 
+            MODES[v]['unit'] = options.datasize_unit
+            MODES[v]['modifier'] = DATASIZE_UNIT[options.datasize_unit]
+            MODES[v]['stdout'] = MODES[v]['stdout'].rstrip('KB') + options.datasize_unit
     elif options.datasize_unit and not options.datasize_unit in DATASIZE_UNIT:
         parser.error('Invalid datasize unit specified.')
     
