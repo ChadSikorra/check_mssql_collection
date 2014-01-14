@@ -315,6 +315,7 @@ def parse_args():
         options.datasize_unit = options.datasize_unit.upper() 
         MODES['datasize']['unit'] = options.datasize_unit
         MODES['datasize']['modifier'] = DATASIZE_UNIT[options.datasize_unit]
+        MODES['datasize']['stdout'] = MODES['datasize']['stdout'].rstrip('KB') + options.datasize_unit
     elif options.datasize_unit and not options.datasize_unit in DATASIZE_UNIT:
         parser.error('Invalid datasize unit specified.')
     
